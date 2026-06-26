@@ -5,8 +5,11 @@
 // const WATT_KEYS_ALL = ["20", "25", "40", "45", "60", "70", "90", "120", "200"];
 
 // export default function EditModal({ data, onClose, onSave }) {
+
+//     console.log("EditModal opened with data:", data);
 //     const [form, setForm] = useState({
 //         ...data.watts,
+//         total_watts: data.watts?.total_watts || "0",
 //         pre_total_watts: data.watts?.pre_total_watts || "0",
 //         remarks: data.watts?.remarks || data.remarks || "",
 //     });
@@ -26,38 +29,40 @@
 
 //     const handleChange = (key, val) => {
 //         setForm((prev) => ({ ...prev, [key]: val }));
-//         if (errorMsg) setErrorMsg(""); // Clear error when user types
+//         if (errorMsg) setErrorMsg("");
 //     };
 
 //     const handleSave = async () => {
 //         setLoading(true);
 //         setErrorMsg("");
 
-
 //         try {
 //             const payload = {
 //                 _id: data._id,
 //                 modem_imei_no: data.modem_imei_no,
 //                 watts: form,
-//                 user_details: JSON.parse(localStorage.getItem("panchayatUser")).username || { username: "Unknown" },
+//                 user_details: JSON.parse(localStorage.getItem("panchayatUser"))?.username || "Unknown",
+//                 remarks: form.remarks || "",
 //             };
 
-//             console.log("🔍 Sending Payload:", payload); // For debugging
+//             console.log("🔍 Sending Payload:", payload);
 
-//             await updateAsset(payload);
+//             const apiReesponse = await updateAsset(payload);
 
 //             setSaved(true);
+
+//             // // Success: Refresh parent grid but keep current Panchayat selected
 //             setTimeout(() => {
-//                 onSave();
+//                 onSave();   // This should trigger refresh in AssetListPage
 //                 onClose();
-//             }, 800);
+//             }, 700);
+
 //         } catch (err) {
 //             console.error("Update Error:", err);
-
 //             const message = err?.response?.data?.message ||
 //                 err?.message ||
-//                 "Unknown error occurred";
-
+//                 "Failed to save changes. Please check your connection.";
+            
 //             setErrorMsg(message);
 //             alert(`Failed to save: ${message}`);
 //         } finally {
@@ -78,27 +83,19 @@
 //         <div
 //             onClick={(e) => e.target === e.currentTarget && onClose()}
 //             style={{
-//                 position: "fixed",
-//                 inset: 0,
+//                 position: "fixed", inset: 0,
 //                 background: "rgba(0,0,0,0.45)",
-//                 display: "flex",
-//                 alignItems: "center",
-//                 justifyContent: "center",
-//                 zIndex: 10000,
-//                 padding: "1rem",
+//                 display: "flex", alignItems: "center", justifyContent: "center",
+//                 zIndex: 10000, padding: "1rem",
 //             }}
 //         >
-//             <div
-//                 style={{
-//                     background: T.surface,
-//                     borderRadius: T.radiusXl,
-//                     width: "100%",
-//                     maxWidth: 560,
-//                     maxHeight: "90vh",
-//                     overflowY: "auto",
-//                     border: T.border,
-//                 }}
-//             >
+//             <div style={{
+//                 background: T.surface,
+//                 borderRadius: T.radiusXl,
+//                 width: "100%", maxWidth: 560,
+//                 maxHeight: "90vh", overflowY: "auto",
+//                 border: T.border,
+//             }}>
 //                 {/* Header */}
 //                 <div style={{
 //                     display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -116,8 +113,8 @@
 //                     </div>
 //                     <button onClick={onClose} style={{
 //                         width: 32, height: 32, borderRadius: T.radius,
-//                         background: T.surfaceAlt, border: T.borderEm, cursor: "pointer",
-//                         fontSize: 16, color: T.textSecondary,
+//                         background: T.surfaceAlt, border: T.borderEm,
+//                         cursor: "pointer", fontSize: 16, color: T.textSecondary,
 //                     }}>✕</button>
 //                 </div>
 
@@ -172,7 +169,7 @@
 //                             placeholder="Add remarks, observations, maintenance notes..."
 //                             rows={4}
 //                             style={{
-//                                 width: "96%", padding: "10px 12px", border: "1.5px solid #C8CCD0",
+//                                 width: "97%", padding: "10px 12px", border: "1.5px solid #C8CCD0",
 //                                 borderRadius: T.radius, fontSize: 14, background: T.surfaceAlt,
 //                                 color: T.textPrimary, outline: "none", resize: "vertical",
 //                             }}
@@ -185,10 +182,8 @@
 //                         background: T.indigoDim, border: `0.5px solid ${T.indigo}30`,
 //                         marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center"
 //                     }}>
-//                         <div>
-//                             <div style={{ fontSize: 11, fontWeight: 600, color: T.indigoText, textTransform: "uppercase" }}>
-//                                 Current Total
-//                             </div>
+//                         <div style={{ fontSize: 11, fontWeight: 600, color: T.indigoText, textTransform: "uppercase" }}>
+//                             Current Total
 //                         </div>
 //                         <div style={{ fontSize: 26, fontWeight: 700, color: T.indigoText }}>
 //                             {parseInt(form.total_watts || 0).toLocaleString()} W
@@ -233,6 +228,7 @@
 // }
 
 
+
 import { useState, useEffect } from "react";
 import { updateAsset } from "../services/api";
 import { T } from "./LoginPage";
@@ -250,12 +246,18 @@ export default function EditModal({ data, onClose, onSave }) {
     const [saved, setSaved] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    /* Auto-compute total_watts */
+    /* Auto-compute total_watts = sum(quantity * watt_rating) */
     useEffect(() => {
-        const total = WATT_KEYS_ALL.reduce(
-            (s, k) => s + (parseInt(form[k]) || 0), 0
-        );
-        setForm((prev) => ({ ...prev, total_watts: total.toString() }));
+        const total = WATT_KEYS_ALL.reduce((sum, wattStr) => {
+            const quantity = parseInt(form[wattStr] || 0);
+            const watt = parseInt(wattStr);
+            return sum + quantity * watt;
+        }, 0);
+
+        // Only update if value actually changed (prevents infinite loop)
+        if (total.toString() !== form.total_watts) {
+            setForm((prev) => ({ ...prev, total_watts: total.toString() }));
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [WATT_KEYS_ALL.map((k) => form[k]).join(",")]);
 
@@ -277,15 +279,12 @@ export default function EditModal({ data, onClose, onSave }) {
                 remarks: form.remarks || "",
             };
 
-            console.log("🔍 Sending Payload:", payload);
-
-            const apiReesponse = await updateAsset(payload);
+            const apiResponse = await updateAsset(payload);
 
             setSaved(true);
 
-            // // Success: Refresh parent grid but keep current Panchayat selected
             setTimeout(() => {
-                onSave();   // This should trigger refresh in AssetListPage
+                onSave();
                 onClose();
             }, 700);
 
@@ -408,14 +407,14 @@ export default function EditModal({ data, onClose, onSave }) {
                         />
                     </div>
 
-                    {/* Computed Total */}
+                    {/* Computed Total Watts */}
                     <div style={{
                         padding: "1rem 1.25rem", borderRadius: T.radiusLg,
                         background: T.indigoDim, border: `0.5px solid ${T.indigo}30`,
                         marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center"
                     }}>
                         <div style={{ fontSize: 11, fontWeight: 600, color: T.indigoText, textTransform: "uppercase" }}>
-                            Current Total
+                            Current Total Watts
                         </div>
                         <div style={{ fontSize: 26, fontWeight: 700, color: T.indigoText }}>
                             {parseInt(form.total_watts || 0).toLocaleString()} W
