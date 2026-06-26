@@ -101,9 +101,9 @@ export default function LoginPage({ onLoginSuccess }) {
           style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
           <InputField
-            label="Username" name="username" type="text"
+            label="Email ID" name="username" type="text"
             value={form.username} onChange={handleChange}
-            placeholder="Enter your username"
+            placeholder="Enter your email"
             focused={focused.username}
             onFocus={() => setFocused((p) => ({ ...p, username: true }))}
             onBlur={() => setFocused((p) => ({ ...p, username: false }))}
