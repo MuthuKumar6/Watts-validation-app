@@ -1,4 +1,5 @@
-const API_BASE = "https://ccms.ectinfra.in:4040/SLMS/dashboard";
+// const API_BASE = "https://ccms.ectinfra.in:4040/SLMS/dashboard";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 /* ── Mock Login ──────────────────────────────────────────── */
 export async function loginApi({ username, password }) {
